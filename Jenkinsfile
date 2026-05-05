@@ -23,10 +23,10 @@ spec:
   - name: kubectl
     image: bitnami/kubectl:latest
     command:
-    - cat
+    - /bin/sh
+    - -c
+    - sleep 9999999
     tty: true
-    args:
-    - infinity
   volumes:
   - name: docker-storage
     emptyDir: {}
