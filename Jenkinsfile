@@ -102,6 +102,12 @@ spec:
         }
         failure {
             echo '배포 실패!'
+
+            container('kubectl') {
+               sh '''
+               kubectl rollout undo deployment/beatbuddy-backend -n default
+               '''
+            }
         }
     }
 }
