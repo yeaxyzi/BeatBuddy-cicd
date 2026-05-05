@@ -20,6 +20,12 @@ spec:
     volumeMounts:
     - name: docker-storage
       mountPath: /var/lib/docker
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - sleep
+    args:
+    - infinity
   volumes:
   - name: docker-storage
     emptyDir: {}
@@ -56,7 +62,9 @@ spec:
 
         stage('K8s 배포') {
             steps {
-                sh 'kubectl apply -f k8s/'
+                container('kubectl') {
+                    sh 'kubectl apply -f k8s/'
+                }
             }
         }
     }

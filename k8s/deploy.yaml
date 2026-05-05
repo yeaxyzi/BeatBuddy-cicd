@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beatbuddy-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: beatbuddy-backend
+  template:
+    metadata:
+      labels:
+        app: beatbuddy-backend
+    spec:
+      containers:
+        - name: beatbuddy-backend
+          image: beatbuddy-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "local"
