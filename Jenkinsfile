@@ -85,9 +85,13 @@ spec:
 
         stage('K8s 배포') {
             steps {
-                container('kubectl') {
-                    sh 'kubectl apply -f k8s/'
-                }
+                 container('kubectl') {
+                    sh '''
+                    sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/deploy.yaml
+                    kubectl apply -f k8s/
+                    kubectl rollout status deployment/beatbuddy-backend
+                    '''
+                 }
             }
         }
     }
