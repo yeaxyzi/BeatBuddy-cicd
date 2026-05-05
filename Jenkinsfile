@@ -53,7 +53,7 @@ spec:
             steps {
                 container('docker') {
                     sh '''
-                    docker build -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker build -f backend/dockerfile -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} backend
                     docker tag ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
                     '''
                 }
