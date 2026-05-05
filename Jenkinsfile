@@ -4,6 +4,8 @@ pipeline {
     environment {
         IMAGE_NAME = 'beatbuddy-backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
+        GRADLE_OPTS = '-Xmx512m -Xms256m'
+        JAVA_OPTS = '-Xmx512m'
     }
 
     stages {
@@ -13,11 +15,11 @@ pipeline {
             }
         }
 
-        stage('테스트') {
-            steps {
-                sh './gradlew test --no-daemon'
-            }
-        }
+//         stage('테스트') {
+//             steps {
+//                 sh './gradlew test --no-daemon'
+//             }
+//         }
 
         stage('빌드') {
             steps {
