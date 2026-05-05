@@ -1,0 +1,15 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://mariadb:3306/beatbuddy
+    username: beyond
+    password: beyond
+  data:
+    redis:
+      host: redis
+      username: default
+      password: beyond
+      port: 6379
