@@ -89,7 +89,7 @@ spec:
                     sh '''
                     sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/deploy.yaml
                     kubectl apply -f k8s/
-                    kubectl rollout status deployment/beatbuddy-backend
+                    kubectl rollout status deployment/beatbuddy-backend -n default
                     '''
                  }
             }
