@@ -35,6 +35,7 @@ spec:
     }
 
     environment {
+        DOCKERHUB_USERNAME = 'yeaxyzi'
         IMAGE_NAME = 'beatbuddy-backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
         GRADLE_OPTS = '-Xmx512m -Xms256m'
@@ -56,7 +57,28 @@ spec:
         stage('Docker 이미지 빌드') {
             steps {
                 container('docker') {
-                    sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
+                    sh '''
+                    docker build -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker tag ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Docker 이미지 Push') {
+            steps {
+                container('docker') {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )]) {
+                        sh '''
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                        docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                        '''
+                    }
                 }
             }
         }

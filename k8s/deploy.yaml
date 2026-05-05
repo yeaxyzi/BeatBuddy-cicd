@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
         - name: beatbuddy-backend
-          image: beatbuddy-backend:latest
+          image: yeaxyzi/beatbuddy-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
