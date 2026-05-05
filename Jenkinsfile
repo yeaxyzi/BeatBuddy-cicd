@@ -50,7 +50,7 @@ spec:
 
         stage('빌드') {
             steps {
-                sh './gradlew clean build -x test --no-daemon'
+                sh 'cd backend && ./gradlew clean build -x test --no-daemon'
             }
         }
 
@@ -87,6 +87,7 @@ spec:
             steps {
                  container('kubectl') {
                     sh '''
+                    apk add --no-cache kubectl
                     sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml
                     kubectl apply -f k8s/backend/ -f k8s/mariadb/ -f k8s/redis/
                     kubectl rollout status deployment/beatbuddy-backend -n default
