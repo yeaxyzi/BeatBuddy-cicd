@@ -21,7 +21,7 @@ spec:
     - name: docker-storage
       mountPath: /var/lib/docker
   - name: kubectl
-    image: bitnami/kubectl:latest
+    image: alpine/k8s:1.28.3
     command:
     - /bin/sh
     - -c
