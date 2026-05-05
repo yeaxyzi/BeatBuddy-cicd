@@ -42,11 +42,6 @@ spec:
     }
 
     stages {
-        stage('체크아웃') {
-            steps {
-                checkout scm
-            }
-        }
 
         stage('빌드') {
             steps {
