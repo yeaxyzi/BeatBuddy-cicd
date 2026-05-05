@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.beyond.beatbuddy.chat.mapper.ChatRoomMapper">
+
+    <resultMap id="ChatRoomResultMap" type="com.beyond.beatbuddy.chat.entity.ChatRoom">
+        <id property="roomId" column="room_id"/>
+        <result property="userAId" column="user_a_id"/>
+        <result property="userBId" column="user_b_id"/>
+        <result property="groupId" column="group_id"/>
+        <result property="lastMessageId" column="last_message_id"/>
+        <result property="lastMessageText" column="last_message_text"/>
+        <result property="lastMessageAt" column="last_message_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="ChatRoomResponseMap" type="com.beyond.beatbuddy.chat.dto.response.ChatRoomResponse">
+        <result property="roomId" column="room_id"/>
+        <result property="opponentUserId" column="opponent_user_id"/>
+        <result property="opponentNickname" column="opponent_nickname"/>
+        <result property="opponentProfileImageUrl" column="opponent_profile_image_url"/>
+    </resultMap>
+
+    <resultMap id="ChatRoomListResponseMap" type="com.beyond.beatbuddy.chat.dto.response.ChatRoomListResponse">
+        <result property="roomId" column="room_id"/>
+        <result property="opponentUserId" column="opponent_user_id"/>
+        <result property="opponentNickname" column="opponent_nickname"/>
+        <result property="opponentProfileImageUrl" column="opponent_profile_image_url"/>
+        <result property="lastMessageText" column="last_message_text"/>
+        <result property="lastMessageAt" column="last_message_at"/>
+        <result property="unreadCount" column="unread_count"/>
+    </resultMap>
+
+    <resultMap id="ChatMessageResponseMap" type="com.beyond.beatbuddy.chat.dto.response.ChatMessageResponse">
+        <result property="messageId" column="message_id"/>
+        <result property="senderId" column="sender_id"/>
+        <result property="senderNickname" column="sender_nickname"/>
+        <result property="messageText" column="message_text"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="isRead" column="unread_marker"/>
+    </resultMap>
+
+    <!-- 채팅방 조회 (is_exited 조건 제거) -->
+    <select id="findRoomByUsers" resultMap="ChatRoomResultMap">
+        SELECT room_id, user_a_id, user_b_id, group_id, last_message_id, last_message_text, last_message_at, created_at
+        FROM chat_rooms
+        WHERE user_a_id = LEAST(#{loginUserId}, #{opponentUserId})
+          AND user_b_id = GREATEST(#{loginUserId}, #{opponentUserId})
+    </select>
+
+    <!-- 채팅방 생성 -->
+    <insert id="insertChatRoom" useGeneratedKeys="true" keyProperty="roomId">
+        INSERT INTO chat_rooms (group_id, user_a_id, user_b_id, created_at)
+        VALUES (#{groupId}, LEAST(#{userAId}, #{userBId}), GREATEST(#{userAId}, #{userBId}), NOW())
+    </insert>
+
+    <!-- 멤버 생성 -->
+    <insert id="insertChatRoomMember">
+        INSERT INTO chat_room_members (room_id, user_id, unread_count, is_exited, rejoined_at, created_at)
+        VALUES (#{roomId}, #{userId}, 0, FALSE, NULL, NOW())
+    </insert>
+
+    <!-- 채팅방 재활성화 -->
+    <update id="reactivateMember">
+        UPDATE chat_room_members
+        SET is_exited = FALSE,
+            rejoined_at = NOW()
+        WHERE room_id = #{roomId}
+          AND user_id = #{loginUserId}
+    </update>
+
+    <!-- 채팅방 나가기 -->
+    <update id="exitChatRoom">
+        UPDATE chat_room_members
+        SET is_exited = TRUE,
+            unread_count = 0,
+            rejoined_at = NULL
+        WHERE room_id = #{roomId}
+          AND user_id = #{loginUserId}
+    </update>
+
+    <!-- 채팅방 정보 반환 -->
+    <select id="findChatRoomInfo" resultMap="ChatRoomResponseMap">
+        SELECT
+            r.room_id,
+            u.user_id AS opponent_user_id,
+            u.nickname AS opponent_nickname,
+            u.profile_image_url AS opponent_profile_image_url
+        FROM chat_rooms r
+                 JOIN users u ON u.user_id = CASE
+                                                 WHEN r.user_a_id = #{loginUserId} THEN r.user_b_id
+                                                 ELSE r.user_a_id
+            END
+        WHERE r.room_id = #{roomId}
+    </select>
+
+    <!-- 채팅방 존재 여부 -->
+    <select id="existsById" resultType="int">
+        SELECT COUNT(*)
+        FROM chat_rooms
+        WHERE room_id = #{roomId}
+    </select>
+
+    <!-- 상대방 나갔는지 확인 -->
+    <select id="isOpponentExited" resultType="boolean">
+        SELECT is_exited
+        FROM chat_room_members
+        WHERE room_id = #{roomId}
+          AND user_id != #{loginUserId}
+    </select>
+
+    <!-- 본인 나갔는지 확인 -->
+    <select id="isMyExited" resultType="boolean">
+        SELECT is_exited
+        FROM chat_room_members
+        WHERE room_id = #{roomId}
+          AND user_id = #{loginUserId}
+    </select>
+
+    <!-- 상대방 userId 반환 -->
+    <select id="findOpponentUserId" resultType="Long">
+        SELECT CASE
+                   WHEN user_a_id = #{loginUserId} THEN user_b_id
+                   ELSE user_a_id
+                   END
+        FROM chat_rooms
+        WHERE room_id = #{roomId}
+    </select>
+
+    <!-- rejoined_at 조회 -->
+    <select id="findRejoinedAt" resultType="java.time.LocalDateTime">
+        SELECT rejoined_at
+        FROM chat_room_members
+        WHERE room_id = #{roomId}
+          AND user_id = #{loginUserId}
+    </select>
+
+    <!-- 메시지 조회 (rejoined_at 이후만) -->
+    <select id="findMessages" resultMap="ChatMessageResponseMap">
+        SELECT
+            m.message_id,
+            m.sender_id,
+            gm.group_nickname AS sender_nickname,
+            m.message_text,
+            m.created_at,
+            CASE
+                WHEN m.sender_id = #{loginUserId}
+                    AND m.message_id > (
+                        SELECT COALESCE(crm.last_read_message_id, 0)
+                        FROM chat_room_members crm
+                        WHERE crm.room_id = #{roomId}
+                          AND crm.user_id = #{opponentUserId}
+                    )
+                    THEN FALSE
+                ELSE NULL
+                END AS unread_marker
+        FROM chat_messages m
+                 JOIN users u ON u.user_id = m.sender_id
+                 JOIN chat_rooms r ON r.room_id = m.room_id
+                 JOIN group_members gm ON gm.group_id = r.group_id
+            AND gm.user_id = m.sender_id
+        WHERE m.room_id = #{roomId}
+          AND (
+            #{rejoinedAt} IS NULL
+                OR m.created_at >= #{rejoinedAt}
+            )
+        ORDER BY m.message_id ASC
+    </select>
+
+    <!-- 읽음 처리 -->
+    <update id="updateReadStatus">
+        UPDATE chat_room_members
+        SET last_read_message_id = (
+            SELECT cr.last_message_id
+            FROM chat_rooms cr
+            WHERE cr.room_id = #{roomId}
+        ),
+            unread_count = 0,
+            last_read_at = NOW()
+        WHERE room_id = #{roomId}
+          AND user_id = #{loginUserId}
+    </update>
+
+    <!-- 채팅방 목록 조회 -->
+    <select id="findAllByUserId" resultMap="ChatRoomListResponseMap">
+        SELECT
+            r.room_id,
+            CASE
+                WHEN r.user_a_id = #{loginUserId} THEN r.user_b_id
+                ELSE r.user_a_id
+                END AS opponent_user_id,
+            gm.group_nickname AS opponent_nickname,
+            u.profile_image_url AS opponent_profile_image_url,
+            r.last_message_text,
+            r.last_message_at,
+            m.unread_count
+        FROM chat_rooms r
+        JOIN chat_room_members m ON r.room_id = m.room_id
+        JOIN users u ON u.user_id = CASE
+            WHEN r.user_a_id = #{loginUserId} THEN r.user_b_id
+            ELSE r.user_a_id
+        END
+        JOIN group_members gm ON gm.group_id = r.group_id
+            AND gm.user_id = CASE
+                WHEN r.user_a_id = #{loginUserId} THEN r.user_b_id
+                ELSE r.user_a_id
+            END
+        WHERE m.user_id = #{loginUserId}
+            AND m.is_exited = FALSE
+            AND r.last_message_at IS NOT NULL
+            AND (m.rejoined_at IS NULL OR r.last_message_at >= m.rejoined_at)
+        ORDER BY r.last_message_at DESC, r.room_id DESC
+    </select>
+
+    <select id="lockChatRoom" resultType="long">
+        SELECT room_id
+        FROM chat_rooms
+        WHERE room_id = #{roomId}
+            FOR UPDATE
+    </select>
+</mapper>

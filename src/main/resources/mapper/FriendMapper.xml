@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.beyond.beatbuddy.friend.mapper.FriendMapper">
+
+    <!-- 친구 요청 생성 -->
+    <insert id="insertRequest" useGeneratedKeys="true" keyProperty="friendshipId">
+        INSERT INTO friendships (requester_id, receiver_id, group_id, status)
+        VALUES (#{requesterId}, #{receiverId}, #{groupId}, 'PENDING')
+    </insert>
+
+    <!-- PENDING 요청 중복 확인 (양방향) -->
+    <select id="findPendingRequest" resultType="com.beyond.beatbuddy.friend.entity.Friendship">
+        SELECT friendship_id, requester_id, receiver_id, group_id, status, created_at, updated_at
+        FROM friendships
+        WHERE status = 'PENDING'
+          AND (
+              (requester_id = #{requesterId} AND receiver_id = #{receiverId})
+           OR (requester_id = #{receiverId} AND receiver_id = #{requesterId})
+          )
+        LIMIT 1
+    </select>
+
+    <!-- 이미 친구(ACCEPTED) 상태인지 확인 -->
+    <select id="findAcceptedFriendship" resultType="com.beyond.beatbuddy.friend.entity.Friendship">
+        SELECT friendship_id, requester_id, receiver_id, group_id, status, created_at, updated_at
+        FROM friendships
+        WHERE status = 'ACCEPTED'
+          AND (
+              (requester_id = #{userA} AND receiver_id = #{userB})
+           OR (requester_id = #{userB} AND receiver_id = #{userA})
+          )
+        LIMIT 1
+    </select>
+
+    <!-- 단건 조회 (수락/거절 처리용) -->
+    <select id="findById" resultType="com.beyond.beatbuddy.friend.entity.Friendship">
+        SELECT friendship_id, requester_id, receiver_id, group_id, status, created_at, updated_at
+        FROM friendships
+        WHERE friendship_id = #{friendshipId}
+    </select>
+
+    <!-- 상태 업데이트 -->
+    <update id="updateStatus">
+        UPDATE friendships
+        SET status = #{status}
+        WHERE friendship_id = #{friendshipId}
+    </update>
+
+    <!-- 친구 삭제 (차단) -->
+    <delete id="deleteFriend">
+        DELETE FROM friendships
+        WHERE friendship_id = #{friendshipId}
+    </delete>
+
+    <!-- 내 친구 목록 (ACCEPTED, 양방향) -->
+    <select id="findFriendsByUserId" resultType="com.beyond.beatbuddy.friend.dto.FriendResponse">
+        SELECT
+            f.friendship_id   AS friendshipId,
+            CASE WHEN f.requester_id = #{userId} THEN f.receiver_id ELSE f.requester_id END AS friendId,
+            u.nickname,
+            gm2.group_nickname AS groupNickname,
+            gm1.group_id AS groupId,
+            u.profile_image_url AS profileImageUrl,
+            f.status
+        FROM friendships f
+                 JOIN users u ON u.user_id = CASE WHEN f.requester_id = #{userId} THEN f.receiver_id ELSE f.requester_id END
+                 JOIN group_members gm1 ON gm1.user_id = #{userId}
+                 JOIN group_members gm2 ON gm2.group_id = gm1.group_id
+            AND gm2.user_id = CASE WHEN f.requester_id = #{userId} THEN f.receiver_id ELSE f.requester_id END
+        WHERE f.status = 'ACCEPTED'
+          AND (f.requester_id = #{userId} OR f.receiver_id = #{userId})
+        ORDER BY f.updated_at DESC
+    </select>
+    <!-- 내가 받은 친구 요청 목록 (PENDING, 내가 receiver) -->
+    <select id="findReceivedRequests" resultType="com.beyond.beatbuddy.friend.dto.FriendResponse">
+        SELECT
+            f.friendship_id AS friendshipId,
+            f.requester_id  AS friendId,
+            u.nickname,
+            u.profile_image_url AS profileImageUrl,
+            f.status
+        FROM friendships f
+        JOIN users u ON u.user_id = f.requester_id
+        WHERE f.status = 'PENDING'
+          AND f.receiver_id = #{userId}
+        ORDER BY f.created_at DESC
+    </select>
+
+    <!-- 친구 상세 조회 (프로필 + 최애곡 목록) -->
+    <resultMap id="FriendDetailResultMap" type="com.beyond.beatbuddy.friend.dto.FriendDetailResponse">
+        <id property="friendId" column="friend_id"/>
+        <result property="nickname" column="nickname"/>
+        <result property="profileImageUrl" column="profile_image_url"/>
+        <result property="gender" column="gender"/>
+        <result property="birthYear" column="birth_year"/>
+        <result property="roomId" column="room_id"/>
+        <collection property="favoriteMusicList"
+                    ofType="com.beyond.beatbuddy.friend.dto.FriendDetailResponse$FavoriteMusicItem">
+            <id     property="musicId"       column="music_id"/>
+            <result property="trackName"     column="track_name"/>
+            <result property="artistName"    column="artist_name"/>
+            <result property="albumName"     column="album_name"/>
+            <result property="albumCoverUrl" column="album_cover_url"/>
+        </collection>
+    </resultMap>
+
+    <select id="findFriendDetail" resultMap="FriendDetailResultMap">
+        SELECT
+            u.user_id            AS friend_id,
+            u.nickname,
+            u.profile_image_url,
+            u.gender,
+            u.birth_year,
+            (
+                SELECT MIN(cr.room_id)
+                FROM chat_rooms cr
+                WHERE (cr.user_a_id = #{myUserId} AND cr.user_b_id = u.user_id)
+                   OR (cr.user_b_id = #{myUserId} AND cr.user_a_id = u.user_id)
+            ) AS room_id,
+            mf.music_id,
+            mf.track_name,
+            mf.artist_name,
+            al.album_name,
+            al.album_cover_url
+        FROM users u
+        JOIN friendships f ON (
+            (f.requester_id = #{myUserId} AND f.receiver_id = u.user_id)
+         OR (f.receiver_id  = #{myUserId} AND f.requester_id = u.user_id)
+        )
+        LEFT JOIN user_fav_music ufm ON ufm.user_id = u.user_id
+        LEFT JOIN music_features mf  ON mf.music_id  = ufm.music_id
+        LEFT JOIN albums al          ON al.album_id   = mf.album_id
+        WHERE u.user_id = #{friendId}
+          AND f.status = 'ACCEPTED'
+    </select>
+
+</mapper>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.beyond.beatbuddy.music.mapper.AlbumMapper">
+
+    <insert id="insertAlbum">
+        INSERT INTO albums (album_id, album_name, album_cover_url)
+        VALUES (#{albumId}, #{albumName}, #{albumCoverUrl})
+        ON DUPLICATE KEY UPDATE
+            album_name      = VALUES(album_name),
+            album_cover_url = VALUES(album_cover_url)
+    </insert>
+
+</mapper>

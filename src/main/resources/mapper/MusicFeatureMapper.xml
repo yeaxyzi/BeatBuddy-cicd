@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.beyond.beatbuddy.music.mapper.MusicFeatureMapper">
+
+    <resultMap id="MusicFeatureResultMap" type="com.beyond.beatbuddy.music.entity.MusicFeature">
+        <id     property="musicId"          column="music_id"/>
+        <result property="albumId"          column="album_id"/>
+        <result property="trackName"        column="track_name"/>
+        <result property="artistName"       column="artist_name"/>
+        <result property="popularity"       column="popularity"/>
+        <result property="energy"           column="energy"/>
+        <result property="danceability"     column="danceability"/>
+        <result property="happiness"        column="happiness"/>
+        <result property="acousticness"     column="acousticness"/>
+        <result property="instrumentalness" column="instrumentalness"/>
+        <result property="liveness"         column="liveness"/>
+        <result property="speechiness"      column="speechiness"/>
+    </resultMap>
+
+    <insert id="insertMusicFeature">
+        INSERT INTO music_features (
+            music_id, album_id, track_name, artist_name,
+            popularity, energy, danceability, happiness,
+            acousticness, instrumentalness, liveness, speechiness
+        ) VALUES (
+            #{musicId}, #{albumId}, #{trackName}, #{artistName},
+            #{popularity}, #{energy}, #{danceability}, #{happiness},
+            #{acousticness}, #{instrumentalness}, #{liveness}, #{speechiness}
+        )
+        ON DUPLICATE KEY UPDATE
+            album_id          = VALUES(album_id),
+            track_name        = VALUES(track_name),
+            artist_name       = VALUES(artist_name),
+            popularity        = VALUES(popularity),
+            energy            = VALUES(energy),
+            danceability      = VALUES(danceability),
+            happiness         = VALUES(happiness),
+            acousticness      = VALUES(acousticness),
+            instrumentalness  = VALUES(instrumentalness),
+            liveness          = VALUES(liveness),
+            speechiness       = VALUES(speechiness)
+    </insert>
+
+    <select id="findById" resultMap="MusicFeatureResultMap">
+        SELECT * FROM music_features WHERE music_id = #{musicId}
+    </select>
+
+</mapper>

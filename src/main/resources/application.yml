@@ -1,0 +1,65 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: beatbuddy
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:3306/beatbuddy
+    username: beyond
+    password: beyond
+  data:
+    redis:
+      host: localhost
+      username: default
+      password: beyond
+      port: 6379
+  servlet:
+    multipart:
+      max-file-size: 10MB        # 프로필 사진 업로드용
+      max-request-size: 10MB
+  mail:
+    default-encoding: UTF-8
+    host: smtp.gmail.com
+    port: 587
+    username: ${spring.mail.username}
+    password: ${spring.mail.password}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+  config:
+    import: application-secret.yml
+
+mybatis:
+  type-aliases-package: com.beyond.beatbuddy.*.entity, com.beyond.beatbuddy.global.entity
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    jdbc-type-for-null: NULL
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${jwt.secret}
+
+springdoc:
+  swagger-ui:
+    operations-sorter: method
+  paths-to-match: [ /api/v1/** ]
+
+file:
+  upload:
+    profile: ./uploads/profiles   # 개인 프로필
+    group: ./uploads/groups       # 그룹 사진
+  default-profile: /default-profile.jpg
+  default-group: /default-group.jpg
+
+spotify:
+  client-id: ${spotify.client-id}
+  client-secret: ${spotify.client-secret}
+
+app:
+  group:
+    default-image-url: https://cdn-icons-png.flaticon.com/512/82/82750.png
+
+rapidapi:
+  track-analysis-host: track-analysis.p.rapidapi.com

@@ -1,0 +1,9 @@
+server:
+  port: 8088
+
+logging:
+  level:
+    '[org.springframework.web]': debug
+    '[org.springframework.security]': debug
+    '[org.mybatis]': debug
+    '[org.springframework.data.redis]': debug

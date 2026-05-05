@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.beyond.beatbuddy.chat.mapper.ChatMessageMapper">
+
+    <resultMap id="ChatMessageResultMap" type="com.beyond.beatbuddy.chat.entity.ChatMessage">
+        <id property="messageId" column="message_id"/>
+        <result property="roomId" column="room_id"/>
+        <result property="senderId" column="sender_id"/>
+        <result property="messageText" column="message_text"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="ChatMessageResponseMap" type="com.beyond.beatbuddy.chat.dto.response.ChatMessageResponse">
+        <result property="messageId" column="message_id"/>
+        <result property="senderId" column="sender_id"/>
+        <result property="senderNickname" column="sender_nickname"/>
+        <result property="messageText" column="message_text"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="isRead" column="unread_marker"/>
+    </resultMap>
+
+    <insert id="insertMessage" useGeneratedKeys="true" keyProperty="messageId">
+        INSERT INTO chat_messages (room_id, sender_id, message_text, created_at)
+        VALUES (#{roomId}, #{senderId}, #{messageText}, NOW())
+    </insert>
+
+    <update id="updateLastMessage">
+        UPDATE chat_rooms
+        SET last_message_id = #{messageId},
+            last_message_text = #{messageText},
+            last_message_at = NOW()
+        WHERE room_id = #{roomId}
+    </update>
+
+    <update id="incrementUnreadCount">
+        UPDATE chat_room_members
+        SET unread_count = unread_count + 1
+        WHERE room_id = #{roomId}
+          AND user_id != #{senderId}
+          AND is_exited = FALSE
+    </update>
+
+    <select id="findById" resultMap="ChatMessageResponseMap">
+        SELECT
+            m.message_id,
+            m.sender_id,
+            u.nickname AS sender_nickname,
+            m.message_text,
+            m.created_at
+        FROM chat_messages m
+                 JOIN users u ON u.user_id = m.sender_id
+        WHERE m.message_id = #{messageId}
+    </select>
+
+    <select id="findReceiverIdByRoomId" resultType="Long">
+        SELECT CASE
+            WHEN user_a_id = #{senderId} THEN user_b_id
+            ELSE user_a_id
+        END
+        FROM chat_rooms
+        WHERE room_id = #{roomId}
+    </select>
+
+    <select id="lockChatRoom" resultType="long">
+        SELECT room_id
+        FROM chat_rooms
+        WHERE room_id = #{roomId}
+            FOR UPDATE
+    </select>
+
+</mapper>

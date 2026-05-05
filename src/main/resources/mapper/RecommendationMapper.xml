@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.beyond.beatbuddy.recommendation.mapper.RecommendationMapper">
+
+    <resultMap id="RecommendationResultMap" type="com.beyond.beatbuddy.recommendation.dto.RecommendationResponseDto">
+        <id property="userId" column="userId"/>
+        <result property="nickname" column="nickname"/>
+        <result property="groupNickname" column="groupNickname"/>
+        <result property="profileImageUrl" column="profileImageUrl"/>
+        <result property="gender" column="gender"/>
+        <result property="birthYear" column="birthYear"/>
+        <result property="similarityScore" column="similarityScore"/>
+        <collection property="favoriteMusicList"
+                    ofType="com.beyond.beatbuddy.recommendation.dto.RecommendationResponseDto$FavoriteMusicItem">
+            <id property="musicId" column="musicId"/>
+            <result property="trackName" column="trackName"/>
+            <result property="artistName" column="artistName"/>
+            <result property="albumName" column="albumName"/>
+            <result property="albumCoverUrl" column="albumCoverUrl"/>
+        </collection>
+    </resultMap>
+
+    <!-- 내 user_profiles 존재 여부 확인 -->
+    <select id="existsUserProfile" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM user_profiles
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 스킵(열람) 이력 저장 -->
+    <insert id="insertViewedProfile">
+        INSERT IGNORE INTO viewed_profiles (viewer_id, viewed_id)
+        VALUES (#{viewerId}, #{viewedId})
+    </insert>
+
+    <!--
+        취향 기반 친구 추천 목록 조회
+        조건:
+        1. 같은 그룹(group_members)에 속해있는 사람
+        2. 나 자신 제외
+        3. 이미 친구(ACCEPTED)인 사람 제외
+        4. 이미 viewer_profiles에 기록된 사람 제외 (스킵한 사람)
+        5. user_profiles(taste_vector)가 있는 사람만 (취향 분석 완료자)
+        6. VEC_DISTANCE로 유사도 순 정렬 (낮을수록 취향이 비슷함)
+    -->
+    <select id="findRecommendations" resultMap="RecommendationResultMap">
+        SELECT
+            u.user_id           AS userId,
+            u.nickname,
+            gm.group_nickname   AS groupNickname,
+            u.profile_image_url AS profileImageUrl,
+            u.gender,
+            u.birth_year        AS birthYear,
+            VEC_DISTANCE(
+                (SELECT taste_vector FROM user_profiles WHERE user_id = #{myUserId}),
+                up.taste_vector
+            ) AS similarityScore,
+            mf.music_id         AS musicId,
+            mf.track_name       AS trackName,
+            mf.artist_name      AS artistName,
+            a.album_name        AS albumName,
+            a.album_cover_url   AS albumCoverUrl
+        FROM users u
+        JOIN group_members gm ON gm.user_id = u.user_id AND gm.group_id = #{groupId}
+        JOIN user_profiles up ON up.user_id = u.user_id
+        LEFT JOIN user_fav_music ufm ON ufm.user_id = u.user_id
+        LEFT JOIN music_features mf ON mf.music_id = ufm.music_id
+        LEFT JOIN albums a ON a.album_id = mf.album_id
+        WHERE u.user_id != #{myUserId}
+          AND u.status = 'ACTIVE'
+          AND u.user_id NOT IN (
+              SELECT CASE WHEN f.requester_id = #{myUserId} THEN f.receiver_id ELSE f.requester_id END
+              FROM friendships f
+              WHERE f.status = 'ACCEPTED'
+                AND (f.requester_id = #{myUserId} OR f.receiver_id = #{myUserId})
+          )
+          AND u.user_id NOT IN (
+              SELECT viewed_id FROM viewed_profiles WHERE viewer_id = #{myUserId}
+          )
+          AND (SELECT taste_vector FROM user_profiles WHERE user_id = #{myUserId}) IS NOT NULL
+        ORDER BY similarityScore ASC, u.user_id ASC, ufm.fav_id ASC
+    </select>
+
+</mapper>

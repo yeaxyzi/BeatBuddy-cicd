@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.beyond.beatbuddy.user.mapper.MyPageMapper">
+
+    <resultMap id="userResultMap" type="com.beyond.beatbuddy.global.entity.User">
+        <id property="userId" column="user_id"/>
+        <result property="email" column="email"/>
+        <result property="password" column="password"/>
+        <result property="nickname" column="nickname"/>
+        <result property="gender" column="gender"/>
+        <result property="birthYear" column="birth_year"/>
+        <result property="profileImageUrl" column="profile_image_url"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <resultMap id="userGroupNicknameResultMap" type="com.beyond.beatbuddy.user.dto.response.UserGroupNicknameItemResponse">
+        <id property="groupId" column="group_id"/>
+        <result property="groupName" column="group_name"/>
+        <result property="groupImageUrl" column="group_image_url"/>
+        <result property="groupNickname" column="group_nickname"/>
+    </resultMap>
+
+    <resultMap id="userNotificationSettingResultMap" type="com.beyond.beatbuddy.user.dto.response.UserNotificationSettingResponse">
+        <result property="allowPushChat" column="allow_push_chat"/>
+        <result property="allowPushSocial" column="allow_push_social"/>
+    </resultMap>
+
+    <select id="selectUserByEmail" resultMap="userResultMap">
+        SELECT user_id, email, password, nickname, gender,
+               birth_year, profile_image_url, status
+        FROM users
+        WHERE email = #{email}
+          AND status = 'ACTIVE'
+    </select>
+
+    <select id="selectNotificationSetting" resultMap="userNotificationSettingResultMap">
+        SELECT allow_push_chat,
+               allow_push_social
+        FROM users
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </select>
+
+    <update id="updateChatNotificationSetting">
+        UPDATE users
+        SET allow_push_chat = #{allowPushChat},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="updateSocialNotificationSetting">
+        UPDATE users
+        SET allow_push_social = #{allowPushSocial},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <select id="selectMyGroupNicknames" resultMap="userGroupNicknameResultMap">
+        SELECT g.group_id,
+               g.group_name,
+               g.group_image_url,
+               gm.group_nickname
+        FROM group_members gm
+                 JOIN user_groups g ON gm.group_id = g.group_id
+        WHERE gm.user_id = #{userId}
+    </select>
+
+    <select id="countDuplicateGroupNickname" resultType="int">
+        SELECT COUNT(*)
+        FROM group_members
+        WHERE group_id = #{groupId}
+          AND group_nickname = #{groupNickname}
+          AND user_id != #{userId}
+    </select>
+
+    <update id="updateGroupNickname">
+        UPDATE group_members
+        SET group_nickname = #{groupNickname}
+        WHERE user_id = #{userId}
+          AND group_id = #{groupId}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE users
+        SET password = #{newPassword},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateProfileImage">
+        UPDATE users
+        SET profile_image_url = #{profileImageUrl},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="withdrawUser">
+        UPDATE users
+        SET status = 'DELETED',
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

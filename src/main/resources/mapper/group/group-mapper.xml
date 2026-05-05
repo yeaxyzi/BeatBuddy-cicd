@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.beyond.beatbuddy.group.mapper.GroupMapper">
+
+    <resultMap id="GroupResultMap" type="Group">
+        <id property="groupId" column="group_id"/>
+        <result property="groupName" column="group_name"/>
+        <result property="memberCount" column="member_count"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="description" column="description"/>
+        <result property="groupImageUrl" column="group_image_url"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="existsByGroupName" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM user_groups
+        WHERE group_name = #{groupName}
+    </select>
+
+    <select id="existsByInviteCode" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM user_groups
+        WHERE invite_code = #{inviteCode}
+    </select>
+
+    <select id="findByInviteCode" resultMap="GroupResultMap">
+        SELECT * FROM user_groups
+        WHERE invite_code = #{inviteCode}
+    </select>
+
+    <select id="findById" resultMap="GroupResultMap">
+        SELECT * FROM user_groups
+        WHERE group_id = #{groupId}
+    </select>
+
+    <select id="existsById" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM user_groups
+        WHERE group_id = #{groupId}
+    </select>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="groupId">
+        INSERT INTO user_groups (
+            group_name, member_count, creator_id,
+            description, group_image_url, invite_code
+        ) VALUES (
+                     #{groupName}, #{memberCount}, #{creatorId},
+                     #{description}, #{groupImageUrl}, #{inviteCode}
+                 )
+    </insert>
+
+    <update id="updateMemberCount">
+        UPDATE user_groups
+        SET member_count = #{memberCount}
+        WHERE group_id = #{groupId}
+    </update>
+
+    <select id="findGroupsByUserId" resultMap="GroupResultMap">
+            SELECT ug.*
+            FROM user_groups ug
+            JOIN group_members gm ON ug.group_id = gm.group_id
+            WHERE gm.user_id = #{userId}
+            ORDER BY gm.joined_at DESC
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM user_groups
+        WHERE group_id = #{groupId}
+    </delete>
+</mapper>

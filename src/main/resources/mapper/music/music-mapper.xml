@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.beyond.beatbuddy.music.mapper.MusicMapper">
+
+    <!-- 앨범 저장/수정 -->
+    <insert id="insertAlbumIgnore">
+        INSERT INTO albums (
+                album_id,
+                album_name,
+                album_cover_url
+        )
+        VALUES (
+                #{albumId},
+                #{albumName},
+                #{coverUrl}
+        )
+        ON DUPLICATE KEY UPDATE
+            album_name = VALUES(album_name),
+            album_cover_url = VALUES(album_cover_url)
+    </insert>
+
+    <!-- 곡 기본 정보 + 속성 저장/수정 -->
+    <insert id="insertMusicFeaturesIgnore">
+        INSERT INTO music_features (
+                            music_id,
+                            album_id,
+                            track_name,
+                            artist_name,
+                            popularity,
+                            energy,
+                            danceability,
+                            happiness,
+                            acousticness,
+                            instrumentalness,
+                            liveness,
+                            speechiness
+        )
+        VALUES (
+                   #{track.trackId},
+                   #{track.albumId},
+                   #{track.trackName},
+                   #{track.artistName},
+                   #{features.popularity},
+                   #{features.energy},
+                   #{features.danceability},
+                   #{features.happiness},
+                   #{features.acousticness},
+                   #{features.instrumentalness},
+                   #{features.liveness},
+                   #{features.speechiness}
+        )
+        ON DUPLICATE KEY UPDATE
+            album_id = VALUES(album_id),
+            track_name = VALUES(track_name),
+            artist_name = VALUES(artist_name),
+            popularity = VALUES(popularity),
+            energy = VALUES(energy),
+            danceability = VALUES(danceability),
+            happiness = VALUES(happiness),
+            acousticness = VALUES(acousticness),
+            instrumentalness = VALUES(instrumentalness),
+            liveness = VALUES(liveness),
+            speechiness = VALUES(speechiness)
+    </insert>
+
+    <!-- 유저 최애곡 저장 -->
+    <insert id="insertUserFavMusic">
+        INSERT INTO user_fav_music (
+                       user_id,
+                       music_id
+        )
+        VALUES (
+                #{userId},
+                #{musicId}
+        )
+    </insert>
+
+    <!-- 유저가 저장한 최애곡 전체 삭제 -->
+    <delete id="deleteUserFavMusic">
+        DELETE FROM user_fav_music
+        WHERE user_id = #{userId}
+    </delete>
+
+    <!-- 유저 취향 곡 조회 -->
+    <select id="findTasteTracksByUserId" resultType="com.beyond.beatbuddy.music.dto.response.TasteResponse$TrackInfo">
+        SELECT
+            mf.music_id AS trackId,
+            mf.track_name AS trackName,
+            mf.artist_name AS artistName,
+            a.album_id AS albumId,
+            a.album_name AS albumName,
+            a.album_cover_url AS albumCoverUrl
+        FROM user_fav_music ufm
+        JOIN music_features mf ON ufm.music_id = mf.music_id
+        JOIN albums a ON mf.album_id = a.album_id
+        WHERE ufm.user_id = #{userId}
+        ORDER BY ufm.fav_id ASC
+        <!--
+             * created_at은 동일한 timestamp로 저장될 수 있어 순서 보장 안됨
+             * AUTO_INCREMENT인 fav_id 기준으로 정렬하면 저장 순서대로 조회됨
+        -->
+    </select>
+
+    <!--
+    유저 취향 벡터 저장
+    <insert id="upsertUserProfile">
+        INSERT INTO user_profiles (user_id, taste_vector)
+        VALUES (#{userId}, VEC_FromText(#{tasteVector}))
+            ON DUPLICATE KEY UPDATE
+                taste_vector = VEC_FromText(#{tasteVector}),
+                updated_at = CURRENT_TIMESTAMP
+    </insert>
+    -->
+
+    <!-- 유저 취향 벡터 최초 저장 -->
+    <insert id="insertUserProfileIgnore">
+        INSERT IGNORE INTO user_profiles (user_id, taste_vector)
+               VALUES (#{userId}, VEC_FromText(#{tasteVector}))
+    </insert>
+
+    <!-- 유저 취향 벡터 수정 -->
+    <update id="updateUserProfile">
+        UPDATE user_profiles
+        SET taste_vector = VEC_FromText(#{tasteVector}),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 취향 분석 완료 표시 -->
+    <update id="updateIsTasteAnalyzed">
+        UPDATE users
+        SET is_taste_analyzed = TRUE
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- trackId로 음악 특성 조회 -->
+    <select id="findFeaturesByTrackId" resultType="com.beyond.beatbuddy.music.dto.response.TrackAnalysisResponse">
+        SELECT
+            music_id AS trackId,
+            popularity,
+            energy,
+            danceability,
+            happiness,
+            acousticness,
+            instrumentalness,
+            liveness,
+            speechiness
+        FROM music_features
+        WHERE music_id = #{trackId}
+    </select>
+
+</mapper>
