@@ -1,0 +1,111 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3355.v388858a_47b_33-19
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+  - name: docker
+    image: docker:27-dind
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: docker-storage
+      mountPath: /var/lib/docker
+  - name: kubectl
+    image: alpine/k8s:1.28.3
+    command:
+    - /bin/sh
+    - -c
+    - sleep 9999999
+    tty: true
+  volumes:
+  - name: docker-storage
+    emptyDir: {}
+'''
+        }
+    }
+
+    environment {
+        DOCKERHUB_USERNAME = 'yeaxyzi'
+        IMAGE_NAME = 'beatbuddy-frontend'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Docker Build') {
+            steps {
+                container('docker') {
+                    sh '''
+                    until docker info >/dev/null 2>&1; do
+                      sleep 1
+                    done
+                    docker build -f frontend/Dockerfile -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} frontend
+                    docker tag ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                container('docker') {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-access',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )]) {
+                        sh '''
+                        until docker info >/dev/null 2>&1; do
+                          sleep 1
+                        done
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                        docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('K8s Deploy') {
+            steps {
+                container('kubectl') {
+                    sh '''
+                    kubectl apply -f k8s/frontend/service.yaml
+                    sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/frontend/deploy.yaml | kubectl apply -f -
+                    kubectl rollout status deployment/beatbuddy-frontend -n default --timeout=180s || {
+                      kubectl get pods -n default -l app=beatbuddy-frontend -o wide
+                      kubectl describe deployment beatbuddy-frontend -n default
+                      kubectl describe pods -n default -l app=beatbuddy-frontend
+                      kubectl logs -n default -l app=beatbuddy-frontend --tail=100 --all-containers=true
+                      exit 1
+                    }
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Frontend deploy success!'
+        }
+        failure {
+            echo 'Frontend deploy failed!'
+            container('kubectl') {
+                sh '''
+                kubectl rollout undo deployment/beatbuddy-frontend -n default || true
+                '''
+            }
+        }
+    }
+}
