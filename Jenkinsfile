@@ -83,7 +83,7 @@ spec:
                  container('kubectl') {
                     sh '''
                     sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml
-                    kubectl apply -f k8s/backend/ -f k8s/mariadb/ -f k8s/redis/
+                    kubectl apply -f k8s/backend/ -f k8s/mariadb/
                     kubectl rollout status deployment/beatbuddy-backend -n default
                     '''
                  }
