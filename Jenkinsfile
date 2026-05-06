@@ -114,7 +114,13 @@ spec:
                     kubectl apply -f k8s/mariadb/
                     kubectl apply -f k8s/backend/service.yaml
                     sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml | kubectl apply -f -
-                    kubectl rollout status deployment/beatbuddy-backend -n default
+                    kubectl rollout status deployment/beatbuddy-backend -n default --timeout=180s || {
+                      kubectl get pods -n default -l app=beatbuddy-backend -o wide
+                      kubectl describe deployment beatbuddy-backend -n default
+                      kubectl describe pods -n default -l app=beatbuddy-backend
+                      kubectl logs -n default -l app=beatbuddy-backend --tail=100 --all-containers=true
+                      exit 1
+                    }
                     '''
                 }
             }
