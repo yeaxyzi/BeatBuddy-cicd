@@ -113,6 +113,8 @@ spec:
                 container('kubectl') {
                     sh '''
                     kubectl apply -f k8s/mariadb/
+                    kubectl apply -f k8s/redis/
+                    kubectl rollout status deployment/redis -n default --timeout=120s
                     kubectl apply -f k8s/backend/service.yaml
                     sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml | kubectl apply -f -
                     kubectl rollout status deployment/beatbuddy-backend -n default --timeout=180s || {
