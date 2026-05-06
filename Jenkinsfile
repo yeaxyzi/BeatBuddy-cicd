@@ -100,7 +100,8 @@ spec:
                         sh '''
                         kubectl create secret generic beatbuddy-secret \
                           --from-env-file=$SECRET_FILE \
-                          --dry-run=client -o yaml | kubectl apply -f -
+                          --dry-run=client -o yaml | kubectl apply -n default -f -
+                        kubectl get secret beatbuddy-secret -n default
                         '''
                     }
                 }
