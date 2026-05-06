@@ -34,3 +34,6 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "live"
+          envFrom:
+            - secretRef:
+                name: beatbuddy-secret
