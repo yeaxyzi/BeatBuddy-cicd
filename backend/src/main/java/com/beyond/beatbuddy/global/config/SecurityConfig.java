@@ -6,6 +6,7 @@ import com.beyond.beatbuddy.global.security.JwtAuthenticationFilter;
 import com.beyond.beatbuddy.global.util.JwtUtil;
 import com.beyond.beatbuddy.global.util.RedisService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +23,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -30,6 +33,12 @@ public class SecurityConfig {
     private final RedisService redisService;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOrigins;
+
+    @Value("${app.cors.allowed-origin-patterns:*.trycloudflare.com}")
+    private String allowedOriginPatterns;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity /*,
@@ -91,9 +100,15 @@ public class SecurityConfig {
         /* CORS = 다른 주소에서 오는 요청 허용/차단 설정 */
         CorsConfiguration config = new CorsConfiguration();
         // 어떤 주소에서 오는 요청 허용할지
-        config.addAllowedOrigin("http://localhost:5173"); // Vue 기본 포트
+        Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .forEach(config::addAllowedOrigin);
         // 어떤 HTTP 메서드 허용할지
-        config.addAllowedOriginPattern("*.trycloudflare.com");
+        Arrays.stream(allowedOriginPatterns.split(","))
+                .map(String::trim)
+                .filter(pattern -> !pattern.isEmpty())
+                .forEach(config::addAllowedOriginPattern);
 
         config.addAllowedMethod("*");  // GET, POST, PUT, DELETE 전부
         // 어떤 헤더 허용할지
