@@ -120,7 +120,7 @@ spec:
                     kubectl rollout status deployment/redis -n ${K8S_NAMESPACE} --timeout=120s
                     kubectl apply -f k8s/backend/service.yaml
                     sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml | kubectl apply -f -
-                    kubectl rollout status deployment/beatbuddy-backend -n ${K8S_NAMESPACE} --timeout=180s || {
+                    kubectl rollout status deployment/beatbuddy-backend -n ${K8S_NAMESPACE} --timeout=300s || {
                       kubectl get pods -n ${K8S_NAMESPACE} -l app=beatbuddy-backend -o wide
                       kubectl describe deployment beatbuddy-backend -n ${K8S_NAMESPACE}
                       kubectl describe pods -n ${K8S_NAMESPACE} -l app=beatbuddy-backend
