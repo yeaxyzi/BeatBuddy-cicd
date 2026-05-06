@@ -82,6 +82,7 @@ spec:
                     sh '''
                     kubectl apply -f k8s/frontend/service.yaml
                     sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/frontend/deploy.yaml | kubectl apply -f -
+                    kubectl apply -f k8s/ingress/
                     kubectl rollout status deployment/beatbuddy-frontend -n default --timeout=180s || {
                       kubectl get pods -n default -l app=beatbuddy-frontend -o wide
                       kubectl describe deployment beatbuddy-frontend -n default
