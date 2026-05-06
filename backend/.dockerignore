@@ -1,0 +1,5 @@
+*
+!dockerfile
+!build/
+!build/libs/
+!build/libs/beatbuddy-0.0.1-SNAPSHOT.jar
