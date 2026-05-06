@@ -81,24 +81,10 @@ spec:
         stage('K8s Secret 생성') {
             steps {
                 container('kubectl') {
-                    withCredentials([
-                        string(credentialsId: 'spring-mail-username', variable: 'SPRING_MAIL_USERNAME'),
-                        string(credentialsId: 'spring-mail-password', variable: 'SPRING_MAIL_PASSWORD'),
-                        string(credentialsId: 'jwt-issuer', variable: 'JWT_ISSUER'),
-                        string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET'),
-                        string(credentialsId: 'spotify-client-id', variable: 'SPOTIFY_CLIENT_ID'),
-                        string(credentialsId: 'spotify-client-secret', variable: 'SPOTIFY_CLIENT_SECRET'),
-                        string(credentialsId: 'rapidapi-key', variable: 'RAPIDAPI_KEY')
-                    ]) {
+                    withCredentials([file(credentialsId: 'beatbuddy-secret-env', variable: 'SECRET_FILE')]) {
                         sh '''
                         kubectl create secret generic beatbuddy-secret \
-                          --from-literal=SPRING_MAIL_USERNAME="$SPRING_MAIL_USERNAME" \
-                          --from-literal=SPRING_MAIL_PASSWORD="$SPRING_MAIL_PASSWORD" \
-                          --from-literal=JWT_ISSUER="$JWT_ISSUER" \
-                          --from-literal=JWT_SECRET="$JWT_SECRET" \
-                          --from-literal=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
-                          --from-literal=SPOTIFY_CLIENT_SECRET="$SPOTIFY_CLIENT_SECRET" \
-                          --from-literal=RAPIDAPI_KEY="$RAPIDAPI_KEY" \
+                          --from-env-file=$SECRET_FILE \
                           --dry-run=client -o yaml | kubectl apply -f -
                         '''
                     }
@@ -108,13 +94,13 @@ spec:
 
         stage('K8s 배포') {
             steps {
-                 container('kubectl') {
+                container('kubectl') {
                     sh '''
                     sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml
                     kubectl apply -f k8s/backend/ -f k8s/mariadb/
                     kubectl rollout status deployment/beatbuddy-backend -n default
                     '''
-                 }
+                }
             }
         }
     }
@@ -125,11 +111,10 @@ spec:
         }
         failure {
             echo '배포 실패!'
-
             container('kubectl') {
-               sh '''
-               kubectl rollout undo deployment/beatbuddy-backend -n default
-               '''
+                sh '''
+                kubectl rollout undo deployment/beatbuddy-backend -n default
+                '''
             }
         }
     }
