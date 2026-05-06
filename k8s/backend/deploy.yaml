@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: beatbuddy-backend
-  namespace: default
+  namespace: beatbuddy
 
 spec:
   replicas: 2

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: beatbuddy-frontend
-  namespace: default
+  namespace: beatbuddy
 spec:
   selector:
     app: beatbuddy-frontend
