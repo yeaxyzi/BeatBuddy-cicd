@@ -13,6 +13,13 @@ spec:
         memory: "1024Mi"
       limits:
         memory: "1024Mi"
+  - name: gradle
+    image: eclipse-temurin:21-jdk
+    command:
+    - /bin/sh
+    - -c
+    - sleep 9999999
+    tty: true
   - name: docker
     image: docker:27-dind
     securityContext:
@@ -39,20 +46,25 @@ spec:
         IMAGE_NAME = 'beatbuddy-backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
         GRADLE_OPTS = '-Xmx512m -Xms256m'
+        GRADLE_USER_HOME = "${WORKSPACE}/.gradle"
     }
 
     stages {
-
-        stage('빌드') {
+        stage('Build') {
             steps {
-                sh 'cd backend && chmod +x gradlew && ./gradlew clean build -x test --no-daemon'
+                container('gradle') {
+                    sh 'cd backend && chmod +x gradlew && ./gradlew clean build -x test --no-daemon'
+                }
             }
         }
 
-        stage('Docker 이미지 빌드') {
+        stage('Docker Build') {
             steps {
                 container('docker') {
                     sh '''
+                    until docker info >/dev/null 2>&1; do
+                      sleep 1
+                    done
                     docker build -f backend/dockerfile -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} backend
                     docker tag ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
                     '''
@@ -60,7 +72,7 @@ spec:
             }
         }
 
-        stage('Docker 이미지 Push') {
+        stage('Docker Push') {
             steps {
                 container('docker') {
                     withCredentials([usernamePassword(
@@ -69,6 +81,9 @@ spec:
                         passwordVariable: 'DOCKER_PASSWORD'
                     )]) {
                         sh '''
+                        until docker info >/dev/null 2>&1; do
+                          sleep 1
+                        done
                         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                         docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
@@ -78,7 +93,7 @@ spec:
             }
         }
 
-        stage('K8s Secret 생성') {
+        stage('K8s Secret') {
             steps {
                 container('kubectl') {
                     withCredentials([file(credentialsId: 'beatbuddy-secret-env', variable: 'SECRET_FILE')]) {
@@ -92,12 +107,13 @@ spec:
             }
         }
 
-        stage('K8s 배포') {
+        stage('K8s Deploy') {
             steps {
                 container('kubectl') {
                     sh '''
-                    sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml
-                    kubectl apply -f k8s/backend/ -f k8s/mariadb/
+                    kubectl apply -f k8s/mariadb/
+                    kubectl apply -f k8s/backend/service.yaml
+                    sed "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/deploy.yaml | kubectl apply -f -
                     kubectl rollout status deployment/beatbuddy-backend -n default
                     '''
                 }
@@ -107,13 +123,13 @@ spec:
 
     post {
         success {
-            echo '배포 성공!'
+            echo 'Deploy success!'
         }
         failure {
-            echo '배포 실패!'
+            echo 'Deploy failed!'
             container('kubectl') {
                 sh '''
-                kubectl rollout undo deployment/beatbuddy-backend -n default
+                kubectl rollout undo deployment/beatbuddy-backend -n default || true
                 '''
             }
         }

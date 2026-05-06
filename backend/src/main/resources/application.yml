@@ -29,7 +29,7 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
   config:
-    import: application-secret.yml
+    import: optional:application-secret.yml
 
 mybatis:
   type-aliases-package: com.beyond.beatbuddy.*.entity, com.beyond.beatbuddy.global.entity
